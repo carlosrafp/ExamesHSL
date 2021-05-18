@@ -15,8 +15,9 @@ public class principal {
 
     public static void main(String[] args)throws Exception {
 
-        String login = "";
-        String senha = "";
+        String login = "xxxx";
+        String senha = "yyyy";
+
         //etapas para login
 
         /// abre site do HSL para obter cookie e viewstate
@@ -79,6 +80,9 @@ public class principal {
         doc = res.parse();
 
         String respostaPostLogin = doc.html(); // armazena retorno do login, que sera importante em requests futuros
+        StringBuilder auxiliar = new StringBuilder();
+
+        /*    //// etapa de busca de mensagens do usuario, suprimi...
 
         // busca mensagens do usuario
         res = Jsoup.connect("http://192.168.245.169/hospitaleHSL/common/diaLogcOntaiNerscroll.aspx")
@@ -89,7 +93,7 @@ public class principal {
                 //.header("Connection","close")
                 .header("Cache-Control", "no-cache")
                 .header("Upgrade-Insecure-Requests", "1")
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*"+"/"+"*;q=0.8,application/signed-exchange;v=b3;q=0.9")
                 .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
                 .cookies(sntCookies)
                 .timeout(0)
@@ -101,10 +105,7 @@ public class principal {
         /// simula o que o navegador faria
         viewState = doc.select("input[name=__VIEWSTATE]");
         viewStateGenerator = doc.select("input[name=__VIEWSTATEGENERATOR]");
-        viewStateStr = viewState.val();
-        viewStateStr = viewStateStr.replaceAll("/","%2F");
-        viewStateStr = viewStateStr.replaceAll("=","%3D");
-        viewStateStr = viewStateStr.replaceAll("\\+","%2B");
+        viewStateStr = escapeStr(viewState.val());
 
         postParams.setLength(0);
         postParams.append("__VIEWSTATE=").append(viewStateStr)
@@ -125,14 +126,14 @@ public class principal {
                 .header("Upgrade-Insecure-Requests", "1")
                 .header("Content-Type","application/x-www-form-urlencoded")
                 .header("Content-Length", String.valueOf(postParamsBytes.length))
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*"+"/"+"*;q=0.8,application/signed-exchange;v=b3;q=0.9")
                 .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
                 .requestBodyBinary(postParamsBytes)
                 .cookies(sntCookies)
                 .timeout(0)
                 .method(Connection.Method.POST).
                         execute();
-        doc = res.parse();
+        //doc = res.parse();
         // valor retornado eh inutil para o programa, entao ignora
 
         postParams.setLength(0);
@@ -161,40 +162,41 @@ public class principal {
                 .header("Upgrade-Insecure-Requests", "1")
                 .header("Content-Type","application/x-www-form-urlencoded")
                 .header("Content-Length", String.valueOf(postParamsBytes.length))
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*"+"/"+"*;q=0.8,application/signed-exchange;v=b3;q=0.9")
                 .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
                 .requestBodyBinary(postParamsBytes)
                 .cookies(sntCookies)
                 .timeout(0)
                 .method(Connection.Method.POST).
                         execute();
-        doc = res.parse();
+        //doc = res.parse();
         /// resposta tambem nao parece ser importante
 
+         */
+
         ////////////////////////////
-        ////// ate aqui foi a etapa de login e verificacao de mensagens
+        ////// ate aqui foi a etapa de login. Etapa de "verificacao de mensagens" foi suprimida/comentada
         ///////////////////////
 
-        // seguem requests que o navegador realiza... talvez alguns possam ser suprimidos
+        // seguem requests que o navegador realiza...
+        // a ordem parece importante ainda que nao se use o response do primeiro
+        // abrir prontuario eletronico
         res = Jsoup.connect("http://192.168.245.169/hospitaleHSL/Clinico/ProntuarioEletronico/p_hosp_1401_PEP.aspx")
                 .userAgent("Mozilla/5.0")
-                //.userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.128 Safari/537.36")
                 .ignoreContentType(true)
                 .ignoreHttpErrors(true)
                 .followRedirects(false)
-                //.header("Connection","close")
-                //.header("Cache-Control", "no-cache")
                 .header("Upgrade-Insecure-Requests", "1")
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*"+"/"+"*;q=0.8,application/signed-exchange;v=b3;q=0.9")
                 .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
                 .cookies(sntCookies)
                 .timeout(0)
                 .method(Connection.Method.GET)
                 .execute();
-        doc = res.parse();
+        //doc = res.parse();
         //// ignora resultado tambem, sem uso para o programa
 
-        // pega janela de avisos, importante para viewState
+        // diaLogconTainerScroll - importante para viewState
         res = Jsoup.connect("http://192.168.245.169/hospitaleHSL/common/diaLogconTainerScroll.aspx")
                 .userAgent("Mozilla/5.0")
                 //.userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.128 Safari/537.36")
