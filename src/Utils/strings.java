@@ -1,5 +1,8 @@
 package Utils;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
 public class strings {
     public static int pegaValor(String source, String marcadorExame, int offset, String marcadorInicio, String marcadorFim, StringBuilder resp)
     {
@@ -60,5 +63,25 @@ public class strings {
         aux = aux.replaceAll("%2B","+");
         return aux;
     }
+
+    public static int buscaStringnaArray(String oque, String[] onde){
+        int y = onde.length;
+        for (int x =0; x < y; x++){
+            if ((onde[x].indexOf(oque))>=0) return x;
+        }
+        return -1;
+    }
+    public static String ISOtoUTF8(String str){
+
+        try{
+            ByteBuffer buffer = StandardCharsets.UTF_8.encode(str);
+            String utf8EncodedString = StandardCharsets.UTF_8.decode(buffer).toString();
+            return utf8EncodedString;
+        }
+        catch(Exception e){
+            return "";
+        }
+    }
+
 
 }
