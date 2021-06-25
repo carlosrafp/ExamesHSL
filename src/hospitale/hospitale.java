@@ -86,8 +86,8 @@ public class hospitale {
         this.sntCookies.putAll(res.cookies());
         doc = res.parse();
 
-        String respostaPostLogin = doc.html(); // armazena retorno do login, que sera importante em requests futuros
-        if (!respostaPostLogin.contains("Bem Vindo")){
+        String respostaPostLogin = doc.html().toLowerCase(); // armazena retorno do login, que sera importante em requests futuros
+        if (!respostaPostLogin.contains("bem vind")){
             return -1; // nao conseguiu logar
         }
 
