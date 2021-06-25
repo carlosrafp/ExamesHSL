@@ -46,7 +46,7 @@ public class principal {
            System.out.println("Erro = " + e.toString());
            System.exit(1);
        }
-
+        JSONArray listaPacientes = hsc.getListaPacientes();
         String lista = hsc.getListaPacientesStr();
         ////// seguir com a parte de busca exames e montagem das tabelas ....
         WriteFile ("resposta.txt",lista);
