@@ -4,6 +4,7 @@ import org.jsoup.helper.Validate;
 import org.jsoup.internal.StringUtil;
 import org.jsoup.nodes.Entities;
 
+
 import java.util.Arrays;
 
 /**
@@ -85,7 +86,7 @@ final class Tokeniser {
             lastStartTag = startTag.tagName;
         } else if (token.type == Token.TokenType.EndTag) {
             Token.EndTag endTag = (Token.EndTag) token;
-            if (endTag.attributes != null)
+            if (endTag.hasAttributes())
                 error("Attributes incorrectly present on end tag");
         }
     }
@@ -104,16 +105,37 @@ final class Tokeniser {
         }
     }
 
+    // variations to limit need to create temp strings
+    void emit(final StringBuilder str) {
+        if (charsString == null) {
+            charsString = str.toString();
+        }
+        else {
+            if (charsBuilder.length() == 0) {
+                charsBuilder.append(charsString);
+            }
+            charsBuilder.append(str);
+        }
+    }
+
+    void emit(char c) {
+        if (charsString == null) {
+            charsString = String.valueOf(c);
+        }
+        else {
+            if (charsBuilder.length() == 0) {
+                charsBuilder.append(charsString);
+            }
+            charsBuilder.append(c);
+        }
+    }
+
     void emit(char[] chars) {
         emit(String.valueOf(chars));
     }
 
     void emit(int[] codepoints) {
         emit(new String(codepoints, 0, codepoints.length));
-    }
-
-    void emit(char c) {
-        emit(String.valueOf(c));
     }
 
     TokeniserState getState() {
@@ -131,7 +153,7 @@ final class Tokeniser {
 
     final private int[] codepointHolder = new int[1]; // holder to not have to keep creating arrays
     final private int[] multipointHolder = new int[2];
-    int[] consumeCharacterReference(Character additionalAllowedCharacter, boolean inAttribute) {
+     int[] consumeCharacterReference(Character additionalAllowedCharacter, boolean inAttribute) {
         if (reader.isEmpty())
             return null;
         if (additionalAllowedCharacter != null && additionalAllowedCharacter == reader.current())
@@ -162,7 +184,6 @@ final class Tokeniser {
             if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
                 characterReferenceError("character outside of valid range");
                 codeRef[0] = replacementChar;
-                return codeRef;
             } else {
                 // fix illegal unicode characters to match browser behavior
                 if (charval >= win1252ExtensionsStart && charval < win1252ExtensionsStart + win1252Extensions.length) {
@@ -173,8 +194,8 @@ final class Tokeniser {
                 // todo: implement number replacement table
                 // todo: check for extra illegal unicode points as parse errors
                 codeRef[0] = charval;
-                return codeRef;
             }
+            return codeRef;
         } else { // named
             // get as many letters as possible, and look for matching entities.
             String nameRef = reader.consumeLetterThenDigitSequence();

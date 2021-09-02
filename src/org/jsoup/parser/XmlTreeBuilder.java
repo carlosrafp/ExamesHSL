@@ -6,9 +6,11 @@ import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.DocumentType;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Entities;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.nodes.XmlDeclaration;
+
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -30,7 +32,10 @@ public class XmlTreeBuilder extends TreeBuilder {
     protected void initialiseParse(Reader input, String baseUri, Parser parser) {
         super.initialiseParse(input, baseUri, parser);
         stack.add(doc); // place the document onto the stack. differs from HtmlTreeBuilder (not on stack)
-        doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
+        doc.outputSettings()
+            .syntax(Document.OutputSettings.Syntax.xml)
+            .escapeMode(Entities.EscapeMode.xhtml)
+            .prettyPrint(false); // as XML, we don't understand what whitespace is significant or not
     }
 
     Document parse(Reader input, String baseUri) {
@@ -39,6 +44,11 @@ public class XmlTreeBuilder extends TreeBuilder {
 
     Document parse(String input, String baseUri) {
         return parse(new StringReader(input), baseUri, new Parser(this));
+    }
+
+    @Override
+    XmlTreeBuilder newInstance() {
+        return new XmlTreeBuilder();
     }
 
     @Override
@@ -75,7 +85,7 @@ public class XmlTreeBuilder extends TreeBuilder {
     Element insert(Token.StartTag startTag) {
         Tag tag = Tag.valueOf(startTag.name(), settings);
         // todo: wonder if for xml parsing, should treat all tags as unknown? because it's not html.
-        if (startTag.attributes != null)
+        if (startTag.hasAttributes())
             startTag.attributes.deduplicate(settings);
 
         Element el = new Element(tag, null, settings.normalizeAttributes(startTag.attributes));

@@ -18,9 +18,9 @@ public class QueryParser {
     private final static String[] combinators = {",", ">", "+", "~", " "};
     private static final String[] AttributeEvals = new String[]{"=", "!=", "^=", "$=", "*=", "~="};
 
-    private TokenQueue tq;
-    private String query;
-    private List<Evaluator> evals = new ArrayList<>();
+    private final TokenQueue tq;
+    private final String query;
+    private final List<Evaluator> evals = new ArrayList<>();
 
     /**
      * Create a new QueryParser.
@@ -95,6 +95,7 @@ public class QueryParser {
             // make sure OR (,) has precedence:
             if (rootEval instanceof CombiningEvaluator.Or && combinator != ',') {
                 currentEval = ((CombiningEvaluator.Or) currentEval).rightMostEvaluator();
+                assert currentEval != null; // rightMost signature can return null (if none set), but always will have one by this point
                 replaceRightMost = true;
             }
         }
@@ -104,28 +105,33 @@ public class QueryParser {
         evals.clear();
 
         // for most combinators: change the current eval into an AND of the current eval and the new eval
-        if (combinator == '>')
-            currentEval = new CombiningEvaluator.And(newEval, new StructuralEvaluator.ImmediateParent(currentEval));
-        else if (combinator == ' ')
-            currentEval = new CombiningEvaluator.And(newEval, new StructuralEvaluator.Parent(currentEval));
-        else if (combinator == '+')
-            currentEval = new CombiningEvaluator.And(newEval, new StructuralEvaluator.ImmediatePreviousSibling(currentEval));
-        else if (combinator == '~')
-            currentEval = new CombiningEvaluator.And(newEval, new StructuralEvaluator.PreviousSibling(currentEval));
-        else if (combinator == ',') { // group or.
-            CombiningEvaluator.Or or;
-            if (currentEval instanceof CombiningEvaluator.Or) {
-                or = (CombiningEvaluator.Or) currentEval;
+        switch (combinator) {
+            case '>':
+                currentEval = new CombiningEvaluator.And(new StructuralEvaluator.ImmediateParent(currentEval), newEval);
+                break;
+            case ' ':
+                currentEval = new CombiningEvaluator.And(new StructuralEvaluator.Parent(currentEval), newEval);
+                break;
+            case '+':
+                currentEval = new CombiningEvaluator.And(new StructuralEvaluator.ImmediatePreviousSibling(currentEval), newEval);
+                break;
+            case '~':
+                currentEval = new CombiningEvaluator.And(new StructuralEvaluator.PreviousSibling(currentEval), newEval);
+                break;
+            case ',':
+                CombiningEvaluator.Or or;
+                if (currentEval instanceof CombiningEvaluator.Or) {
+                    or = (CombiningEvaluator.Or) currentEval;
+                } else {
+                    or = new CombiningEvaluator.Or();
+                    or.add(currentEval);
+                }
                 or.add(newEval);
-            } else {
-                or = new CombiningEvaluator.Or();
-                or.add(currentEval);
-                or.add(newEval);
-            }
-            currentEval = or;
+                currentEval = or;
+                break;
+            default:
+                throw new Selector.SelectorParseException("Unknown combinator: " + combinator);
         }
-        else
-            throw new Selector.SelectorParseException("Unknown combinator: " + combinator);
 
         if (replaceRightMost)
             ((CombiningEvaluator.Or) rootEval).replaceRightMostEvaluator(currentEval);
@@ -141,7 +147,10 @@ public class QueryParser {
             else if (tq.matches("["))
                 sq.append("[").append(tq.chompBalanced('[', ']')).append("]");
             else if (tq.matchesAny(combinators))
-                break;
+                if (sq.length() > 0)
+                    break;
+                else
+                    tq.consume();
             else
                 sq.append(tq.consume());
         }
@@ -231,7 +240,11 @@ public class QueryParser {
 
         // namespaces: wildcard match equals(tagName) or ending in ":"+tagName
         if (tagName.startsWith("*|")) {
-            evals.add(new CombiningEvaluator.Or(new Evaluator.Tag(tagName), new Evaluator.TagEndsWith(tagName.replace("*|", ":"))));
+            String plainTag = tagName.substring(2); // strip *|
+            evals.add(new CombiningEvaluator.Or(
+                new Evaluator.Tag(plainTag),
+                new Evaluator.TagEndsWith(tagName.replace("*|", ":")))
+            );
         } else {
             // namespaces: if element name is "abc:def", selector must be "abc|def", so flip:
             if (tagName.contains("|"))
@@ -382,4 +395,11 @@ public class QueryParser {
 
         evals.add(new StructuralEvaluator.Not(parse(subQuery)));
     }
+
+    @Override
+    public String toString() {
+        return query;
+    }
+
+
 }

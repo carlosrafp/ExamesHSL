@@ -4,6 +4,7 @@ import org.jsoup.SerializationException;
 import org.jsoup.internal.StringUtil;
 import org.jsoup.helper.Validate;
 
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
@@ -20,8 +21,8 @@ public class Attribute implements Map.Entry<String, String>, Cloneable  {
     };
 
     private String key;
-    private String val;
-    Attributes parent; // used to update the holding Attributes when the key / value is changed via this interface
+     private String val;
+     Attributes parent; // used to update the holding Attributes when the key / value is changed via this interface
 
     /**
      * Create a new attribute from unencoded (raw) key and value.
@@ -29,17 +30,17 @@ public class Attribute implements Map.Entry<String, String>, Cloneable  {
      * @param value attribute value (may be null)
      * @see #createFromEncoded
      */
-    public Attribute(String key, String value) {
+    public Attribute(String key,  String value) {
         this(key, value, null);
     }
 
     /**
      * Create a new attribute from unencoded (raw) key and value.
      * @param key attribute key; case is preserved.
-     * @param val attribute value
+     * @param val attribute value (may be null)
      * @param parent the containing Attributes (this Attribute is not automatically added to said Attributes)
      * @see #createFromEncoded*/
-    public Attribute(String key, String val, Attributes parent) {
+    public Attribute(String key,  String val,  Attributes parent) {
         Validate.notNull(key);
         key = key.trim();
         Validate.notEmpty(key); // trimming could potentially make empty, so validate here
@@ -90,15 +91,17 @@ public class Attribute implements Map.Entry<String, String>, Cloneable  {
 
     /**
      Set the attribute value.
-     @param val the new attribute value; must not be null
+     @param val the new attribute value; may be null (to set an enabled boolean attribute)
+     @return the previous value (if was null; an empty string)
      */
-    public String setValue(String val) {
+    public String setValue( String val) {
         String oldVal = this.val;
         if (parent != null) {
-            oldVal = parent.get(this.key); // trust the container more
             int i = parent.indexOfKey(this.key);
-            if (i != Attributes.NotFound)
+            if (i != Attributes.NotFound) {
+                oldVal = parent.get(this.key); // trust the container more
                 parent.vals[i] = val;
+            }
         }
         this.val = val;
         return Attributes.checkNotNull(oldVal);
@@ -119,7 +122,7 @@ public class Attribute implements Map.Entry<String, String>, Cloneable  {
         return StringUtil.releaseBuilder(sb);
     }
 
-    protected static void html(String key, String val, Appendable accum, Document.OutputSettings out) throws IOException {
+    protected static void html(String key,  String val, Appendable accum, Document.OutputSettings out) throws IOException {
         accum.append(key);
         if (!shouldCollapseAttribute(key, val, out)) {
             accum.append("=\"");
@@ -170,10 +173,11 @@ public class Attribute implements Map.Entry<String, String>, Cloneable  {
         return shouldCollapseAttribute(key, val, out);
     }
 
-    protected static boolean shouldCollapseAttribute(final String key, final String val, final Document.OutputSettings out) {
+    // collapse unknown foo=null, known checked=null, checked="", checked=checked; write out others
+    protected static boolean shouldCollapseAttribute(final String key,  final String val, final Document.OutputSettings out) {
         return (
             out.syntax() == Document.OutputSettings.Syntax.html &&
-                (val == null || ("".equals(val) || val.equalsIgnoreCase(key)) && Attribute.isBooleanAttribute(key)));
+                (val == null || (val.isEmpty() || val.equalsIgnoreCase(key)) && Attribute.isBooleanAttribute(key)));
     }
 
     /**

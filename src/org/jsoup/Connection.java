@@ -7,6 +7,7 @@ import javax.net.ssl.SSLSocketFactory;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.CookieStore;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.Collection;
@@ -14,19 +15,28 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A Connection provides a convenient interface to fetch content from the web, and parse them into Documents.
- * <p>
- * To get a new Connection, use {@link org.jsoup.Jsoup#connect(String)}. Connections contain {@link Connection.Request}
- * and {@link Connection.Response} objects. The request objects are reusable as prototype requests.
- * </p>
- * <p>
- * Request configuration can be made using either the shortcut methods in Connection (e.g. {@link #userAgent(String)}),
- * or by methods in the Connection.Request object directly. All request configuration must be made before the request is
- * executed.
- * </p>
+ The Connection interface is a convenient HTTP client and session object to fetch content from the web, and parse them
+ into Documents.
+ <p>To start a new session, use either {@link org.jsoup.Jsoup#newSession()} or {@link org.jsoup.Jsoup#connect(String)}.
+ Connections contain {@link Connection.Request} and {@link Connection.Response} objects (once executed). Configuration
+ settings (URL, timeout, useragent, etc) set on a session will be applied by default to each subsequent request.</p>
+ <p>To start a new request from the session, use {@link #newRequest()}.</p>
+ <p>Cookies are stored in memory for the duration of the session. For that reason, do not use one single session for all
+ requests in a long-lived application, or you are likely to run out of memory, unless care is taken to clean up the
+ cookie store. The cookie store for the session is available via {@link #cookieStore()}. You may provide your own
+ implementation via {@link #cookieStore(java.net.CookieStore)} before making requests.</p>
+ <p>Request configuration can be made using either the shortcut methods in Connection (e.g. {@link #userAgent(String)}),
+ or by methods in the Connection.Request object directly. All request configuration must be made before the request is
+ executed. When used as an ongoing session, initialize all defaults prior to making multi-threaded {@link
+#newRequest()}s.</p>
+ <p>Note that the term "Connection" used here does not mean that a long-lived connection is held against a server for
+ the lifetime of the Connection object. A socket connection is only made at the point of request execution ({@link
+#execute()}, {@link #get()}, or {@link #post()}), and the server's response consumed.</p>
+ <p>For multi-threaded implementations, it is important to use a {@link #newRequest()} for each request. The session may
+ be shared across threads but a given request, not.</p>
  */
+@SuppressWarnings("unused")
 public interface Connection {
-
 
     /**
      * GET and POST http methods.
@@ -50,6 +60,13 @@ public interface Connection {
     }
 
     /**
+     Creates a new request, using this Connection as the session-state and to initialize the connection settings (which may then be independently on the returned Connection.Request object).
+     @return a new Connection object, with a shared Cookie Store and initialized settings from this Connection and Request
+     @since 1.14.1
+     */
+    Connection newRequest();
+
+    /**
      * Set the request URL to fetch. The protocol must be HTTP or HTTPS.
      * @param url URL to connect to
      * @return this Connection, for chaining
@@ -64,7 +81,7 @@ public interface Connection {
     Connection url(String url);
 
     /**
-     * Set the proxy to use for this request. Set to <code>null</code> to disable.
+     * Set the proxy to use for this request. Set to <code>null</code> to disable a previously set proxy.
      * @param proxy proxy to use
      * @return this Connection, for chaining
      */
@@ -205,11 +222,15 @@ public interface Connection {
     Connection data(Map<String, String> data);
 
     /**
-     * Add a number of request data parameters. Multiple parameters may be set at once, e.g.: <code>.data("name",
-     * "jsoup", "language", "Java", "language", "English");</code> creates a query string like:
-     * <code>{@literal ?name=jsoup&language=Java&language=English}</code>
-     * @param keyvals a set of key value pairs.
-     * @return this Connection, for chaining
+     Add one or more request {@code key, val} data parameter pairs.<p>Multiple parameters may be set at once, e.g.:
+     <code>.data("name", "jsoup", "language", "Java", "language", "English");</code> creates a query string like:
+     <code>{@literal ?name=jsoup&language=Java&language=English}</code></p>
+     <p>For GET requests, data parameters will be sent on the request query string. For POST (and other methods that
+     contain a body), they will be sent as body form parameters, unless the body is explicitly set by {@link
+    #requestBody(String)}, in which case they will be query string parameters.</p>
+
+     @param keyvals a set of key value pairs.
+     @return this Connection, for chaining
      */
     Connection data(String... keyvals);
 
@@ -235,7 +256,8 @@ public interface Connection {
     /**
      * Set a Binary Request Body and returns Connection - craf mod
      */
-    Connection requestBodyBinary(byte[] body);
+    Connection requestBodyBinary(byte[] body);	
+	
     /**
      * Set a request header.
      * @param name header name
@@ -267,6 +289,21 @@ public interface Connection {
      * @return this Connection, for chaining
      */
     Connection cookies(Map<String, String> cookies);
+
+    /**
+     Provide a custom or pre-filled CookieStore to be used on requests made by this Connection.
+     @param cookieStore a cookie store to use for subsequent requests
+     @return this Connection, for chaining
+     @since 1.14.1
+     */
+    Connection cookieStore(CookieStore cookieStore);
+
+    /**
+     Get the cookie store used by this Connection.
+     @return the cookie store
+     @since 1.14.1
+     */
+    CookieStore cookieStore();
 
     /**
      * Provide an alternate parser to use when parsing the response to a Document. If not set, defaults to the HTML
@@ -330,8 +367,9 @@ public interface Connection {
     Connection request(Request request);
 
     /**
-     * Get the response, once the request has been executed
+     * Get the response, once the request has been executed.
      * @return response
+     * @throws IllegalArgumentException if called before the response has been executed.
      */
     Response response();
 
@@ -346,11 +384,12 @@ public interface Connection {
      * Common methods for Requests and Responses
      * @param <T> Type of Base, either Request or Response
      */
-    interface Base<T extends Base> {
-
+    @SuppressWarnings("UnusedReturnValue")
+    interface Base<T extends Base<T>> {
         /**
-         * Get the URL
+         * Get the URL of this Request or Response. For redirected responses, this will be the final destination URL.
          * @return URL
+         * @throws IllegalArgumentException if called on a Request that was created without a URL.
          */
         URL url();
 
@@ -362,7 +401,7 @@ public interface Connection {
         T url(URL url);
 
         /**
-         * Get the request method
+         * Get the request method, which defaults to <code>GET</code>
          * @return method
          */
         Method method();
@@ -489,12 +528,12 @@ public interface Connection {
          * @return cookies
          */
         Map<String, String> cookies();
-
     }
 
     /**
      * Represents a HTTP request.
      */
+    @SuppressWarnings("UnusedReturnValue")
     interface Request extends Base<Request> {
         /**
          * Get the proxy used for this request.
@@ -617,6 +656,7 @@ public interface Connection {
          * .header("Content-Type", "application/json")
          * .post();</pre></code>
          * If any data key/vals are supplied, they will be sent as URL query params.
+         * @param body to use as the request body. Set to null to clear a previously set body.
          * @return this Request, for chaining
          */
         Request requestBody(String body);
@@ -653,7 +693,7 @@ public interface Connection {
          */
         String postDataCharset();
 
-        /**
+	/**
          * Set a Binary Request Body - craf mod
          */
         byte[] requestBodyBinary();
@@ -684,7 +724,7 @@ public interface Connection {
 
         /**
          * Get the character set name of the response, derived from the content-type header.
-         * @return character set name
+         * @return character set name if set, <b>null</b> if not
          */
         String charset();
 
@@ -697,7 +737,7 @@ public interface Connection {
 
         /**
          * Get the response content type (e.g. "text/html");
-         * @return the response content type
+         * @return the response content type, or <b>null</b> if one was not set
          */
         String contentType();
 

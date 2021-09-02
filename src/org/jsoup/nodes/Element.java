@@ -38,13 +38,13 @@ import static org.jsoup.internal.Normalizer.normalize;
  * @author Jonathan Hedley, jonathan@hedley.net
  */
 public class Element extends Node {
-    private static final List<Node> EMPTY_NODES = Collections.emptyList();
-    private static final Pattern classSplit = Pattern.compile("\\s+");
-    private static final String baseUriKey = Attributes.internalKey("baseUri");
+    private static final List<Element> EmptyChildren = Collections.emptyList();
+    private static final Pattern ClassSplit = Pattern.compile("\\s+");
+    private static final String BaseUriKey = Attributes.internalKey("baseUri");
     private Tag tag;
-    private WeakReference<List<Element>> shadowChildrenRef; // points to child elements shadowed from node children
+    private  WeakReference<List<Element>> shadowChildrenRef; // points to child elements shadowed from node children
     List<Node> childNodes;
-    private Attributes attributes;
+    private  Attributes attributes; // field is nullable but all methods for attributes are non null
 
     /**
      * Create a new, standalone element.
@@ -63,9 +63,9 @@ public class Element extends Node {
      * @see #appendChild(Node)
      * @see #appendElement(String)
      */
-    public Element(Tag tag, String baseUri, Attributes attributes) {
+    public Element(Tag tag,  String baseUri,  Attributes attributes) {
         Validate.notNull(tag);
-        childNodes = EMPTY_NODES;
+        childNodes = EmptyNodes;
         this.attributes = attributes;
         this.tag = tag;
         if (baseUri != null)
@@ -79,12 +79,19 @@ public class Element extends Node {
      * @param baseUri the base URI of this element. Optional, and will inherit from its parent, if any.
      * @see Tag#valueOf(String, ParseSettings)
      */
-    public Element(Tag tag, String baseUri) {
+    public Element(Tag tag,  String baseUri) {
         this(tag, baseUri, null);
     }
 
+    /**
+     Internal test to check if a nodelist object has been created.
+     */
+    protected boolean hasChildNodes() {
+        return childNodes != EmptyNodes;
+    }
+
     protected List<Node> ensureChildNodes() {
-        if (childNodes == EMPTY_NODES) {
+        if (childNodes == EmptyNodes) {
             childNodes = new NodeList(this, 4);
         }
         return childNodes;
@@ -97,20 +104,20 @@ public class Element extends Node {
 
     @Override
     public Attributes attributes() {
-        if (!hasAttributes())
+        if (attributes == null) // not using hasAttributes, as doesn't clear warning
             attributes = new Attributes();
         return attributes;
     }
 
     @Override
     public String baseUri() {
-        return searchUpForAttribute(this, baseUriKey);
+        return searchUpForAttribute(this, BaseUriKey);
     }
 
     private static String searchUpForAttribute(final Element start, final String key) {
         Element el = start;
         while (el != null) {
-            if (el.hasAttributes() && el.attributes.hasKey(key))
+            if (el.attributes != null && el.attributes.hasKey(key))
                 return el.attributes.get(key);
             el = el.parent();
         }
@@ -119,7 +126,7 @@ public class Element extends Node {
 
     @Override
     protected void doSetBaseUri(String baseUri) {
-        attributes().put(baseUriKey, baseUri);
+        attributes().put(BaseUriKey, baseUri);
     }
 
     @Override
@@ -153,11 +160,12 @@ public class Element extends Node {
     }
 
     /**
-     * Change the tag of this element. For example, convert a {@code <span>} to a {@code <div>} with
+     * Change (rename) the tag of this element. For example, convert a {@code <span>} to a {@code <div>} with
      * {@code el.tagName("div");}.
      *
      * @param tagName new tag name for this element
      * @return this element, for chaining
+     * @see Elements#tagName(String) 
      */
     public Element tagName(String tagName) {
         Validate.notEmpty(tagName, "Tag name must not be empty.");
@@ -176,7 +184,7 @@ public class Element extends Node {
     
     /**
      * Test if this element is a block-level element. (E.g. {@code <div> == true} or an inline element
-     * {@code <p> == false}).
+     * {@code <span> == false}).
      * 
      * @return true if block, false if not (and thus inline)
      */
@@ -190,7 +198,18 @@ public class Element extends Node {
      * @return The id attribute, if present, or an empty string if not.
      */
     public String id() {
-        return hasAttributes() ? attributes.getIgnoreCase("id") :"";
+        return attributes != null ? attributes.getIgnoreCase("id") :"";
+    }
+
+    /**
+     Set the {@code id} attribute of this element.
+     @param id the ID value to use
+     @return this Element, for chaining
+     */
+    public Element id(String id) {
+        Validate.notNull(id);
+        attr("id", id);
+        return this;
     }
 
     /**
@@ -306,7 +325,10 @@ public class Element extends Node {
      * TODO - think about pulling this out as a helper as there are other shadow lists (like in Attributes) kept around.
      * @return a list of child elements
      */
-    private List<Element> childElementsList() {
+    List<Element> childElementsList() {
+        if (childNodeSize() == 0)
+            return EmptyChildren; // short circuit creating empty
+
         List<Element> children;
         if (shadowChildrenRef == null || (children = shadowChildrenRef.get()) == null) {
             final int size = childNodes.size();
@@ -416,7 +438,7 @@ public class Element extends Node {
      * @param cssQuery cssQuery a {@link Selector} CSS-like query
      * @return the first matching element, or <b>{@code null}</b> if there is no match.
      */
-    public Element selectFirst(String cssQuery) {
+    public  Element selectFirst(String cssQuery) {
         return Selector.selectFirst(cssQuery, this);
     }
 
@@ -428,7 +450,7 @@ public class Element extends Node {
      * @return the first matching element (walking down the tree, starting from this element), or {@code null} if none
      *     matchn.
      */
-    public Element selectFirst(Evaluator evaluator) {
+    public  Element selectFirst(Evaluator evaluator) {
         return Collector.findFirst(evaluator, this);
     }
 
@@ -459,7 +481,7 @@ public class Element extends Node {
      * @return the closest ancestor element (possibly itself) that matches the provided evaluator. {@code null} if not
      * found.
      */
-    public Element closest(String cssQuery) {
+    public  Element closest(String cssQuery) {
         return closest(QueryParser.parse(cssQuery));
     }
 
@@ -470,7 +492,7 @@ public class Element extends Node {
      * @return the closest ancestor element (possibly itself) that matches the provided evaluator. {@code null} if not
      * found.
      */
-    public Element closest(Evaluator evaluator) {
+    public  Element closest(Evaluator evaluator) {
         Validate.notNull(evaluator);
         Element el = this;
         final Element root = root();
@@ -483,10 +505,12 @@ public class Element extends Node {
     }
     
     /**
-     * Add a node child node to this element.
+     * Insert a node to the end of this Element's children. The incoming node will be re-parented.
      * 
      * @param child node to add.
-     * @return this element, so that you can add more child nodes or elements.
+     * @return this Element, for chaining
+     * @see #prependChild(Node)
+     * @see #insertChildren(int, Collection)
      */
     public Element appendChild(Node child) {
         Validate.notNull(child);
@@ -496,6 +520,18 @@ public class Element extends Node {
         ensureChildNodes();
         childNodes.add(child);
         child.setSiblingIndex(childNodes.size() - 1);
+        return this;
+    }
+
+    /**
+     Insert the given nodes to the end of this Element's children.
+
+     @param children nodes to add
+     @return this Element, for chaining
+     @see #insertChildren(int, Collection)
+     */
+    public Element appendChildren(Collection<? extends Node> children) {
+        insertChildren(-1, children);
         return this;
     }
 
@@ -521,6 +557,18 @@ public class Element extends Node {
         Validate.notNull(child);
         
         addChildren(0, child);
+        return this;
+    }
+
+    /**
+     Insert the given nodes to the start of this Element's children.
+
+     @param children nodes to add
+     @return this Element, for chaining
+     @see #insertChildren(int, Collection)
+     */
+    public Element prependChildren(Collection<? extends Node> children) {
+        insertChildren(0, children);
         return this;
     }
 
@@ -721,8 +769,18 @@ public class Element extends Node {
      * @return the CSS Path that can be used to retrieve the element in a selector.
      */
     public String cssSelector() {
-        if (id().length() > 0)
-            return "#" + id();
+        if (id().length() > 0) {
+            // prefer to return the ID - but check that it's actually unique first!
+            String idSel = "#" + id();
+            Document doc = ownerDocument();
+            if (doc != null) {
+                Elements els = doc.select(idSel);
+                if (els.size() == 1 && els.get(0) == this) // otherwise, continue to the nth-child impl
+                    return idSel;
+            } else {
+                return idSel; // no ownerdoc, return the ID selector
+            }
+        }
 
         // Translate HTML namespace ns:tag to CSS namespace syntax ns|tag
         String tagName = tagName().replace(':', '|');
@@ -768,7 +826,7 @@ public class Element extends Node {
      * @return the next element, or null if there is no next element
      * @see #previousElementSibling()
      */
-    public Element nextElementSibling() {
+    public  Element nextElementSibling() {
         if (parentNode == null) return null;
         List<Element> siblings = parent().childElementsList();
         int index = indexInList(this, siblings);
@@ -792,7 +850,7 @@ public class Element extends Node {
      * @return the previous element, or null if there is no previous element
      * @see #nextElementSibling()
      */
-    public Element previousElementSibling() {
+    public  Element previousElementSibling() {
         if (parentNode == null) return null;
         List<Element> siblings = parent().childElementsList();
         int index = indexInList(this, siblings);
@@ -820,13 +878,15 @@ public class Element extends Node {
     }
 
     /**
-     * Gets the first element sibling of this element.
+     * Gets the first Element sibling of this element. That may be this element.
      * @return the first sibling that is an element (aka the parent's first element child) 
      */
     public Element firstElementSibling() {
-        // todo: should firstSibling() exclude this?
-        List<Element> siblings = parent().childElementsList();
-        return siblings.size() > 1 ? siblings.get(0) : null;
+        if (parent() != null) {
+            List<Element> siblings = parent().childElementsList();
+            return siblings.size() > 1 ? siblings.get(0) : this;
+        } else
+            return this; // orphan is its own first sibling
     }
     
     /**
@@ -840,12 +900,15 @@ public class Element extends Node {
     }
 
     /**
-     * Gets the last element sibling of this element
+     * Gets the last element sibling of this element. That may be this element.
      * @return the last sibling that is an element (aka the parent's last element child) 
      */
     public Element lastElementSibling() {
-        List<Element> siblings = parent().childElementsList();
-        return siblings.size() > 1 ? siblings.get(siblings.size() - 1) : null;
+        if (parent() != null) {
+            List<Element> siblings = parent().childElementsList();
+            return siblings.size() > 1 ? siblings.get(siblings.size() - 1) : this;
+        } else
+            return this;
     }
 
     private static <E extends Element> int indexInList(Element search, List<E> elements) {
@@ -880,7 +943,7 @@ public class Element extends Node {
      * @param id The ID to search for.
      * @return The first matching element by ID, starting with this element, or null if none found.
      */
-    public Element getElementById(String id) {
+    public  Element getElementById(String id) {
         Validate.notEmpty(id);
         
         Elements elements = Collector.collect(new Evaluator.Id(id), this);
@@ -1126,14 +1189,20 @@ public class Element extends Node {
     }
 
     /**
-     * Gets the combined text of this element and all its children. Whitespace is normalized and trimmed.
-     * <p>
-     * For example, given HTML {@code <p>Hello  <b>there</b> now! </p>}, {@code p.text()} returns {@code "Hello there now!"}
-     *
-     * @return unencoded, normalized text, or empty string if none.
-     * @see #wholeText() if you don't want the text to be normalized.
-     * @see #ownText()
-     * @see #textNodes()
+     Gets the <b>normalized, combined text</b> of this element and all its children. Whitespace is normalized and
+     trimmed.
+     <p>For example, given HTML {@code <p>Hello  <b>there</b> now! </p>}, {@code p.text()} returns {@code "Hello there
+    now!"}
+     <p>If you do not want normalized text, use {@link #wholeText()}. If you want just the text of this node (and not
+     children), use {@link #ownText()}
+     <p>Note that this method returns the textual content that would be presented to a reader. The contents of data
+     nodes (such as {@code <script>} tags are not considered text. Use {@link #data()} or {@link #html()} to retrieve
+     that content.
+
+     @return unencoded, normalized text, or empty string if none.
+     @see #wholeText()
+     @see #ownText()
+     @see #textNodes()
      */
     public String text() {
         final StringBuilder accum = StringUtil.borrowBuilder();
@@ -1190,7 +1259,7 @@ public class Element extends Node {
     }
 
     /**
-     * Gets the text owned by this element only; does not get the combined text of all children.
+     * Gets the (normalized) text owned by this element only; does not get the combined text of all children.
      * <p>
      * For example, given HTML {@code <p>Hello <b>there</b> now!</p>}, {@code p.ownText()} returns {@code "Hello now!"},
      * whereas {@code p.text()} returns {@code "Hello there now!"}.
@@ -1231,7 +1300,7 @@ public class Element extends Node {
             accum.append(" ");
     }
 
-    static boolean preserveWhitespace(Node node) {
+    static boolean preserveWhitespace( Node node) {
         // looks only at this element and five levels up, to prevent recursion & needless stack searches
         if (node instanceof Element) {
             Element el = (Element) node;
@@ -1247,16 +1316,22 @@ public class Element extends Node {
     }
 
     /**
-     * Set the text of this element. Any existing contents (text or elements) will be cleared
+     * Set the text of this element. Any existing contents (text or elements) will be cleared.
+     * <p>As a special case, for {@code <script>} and {@code <style>} tags, the input text will be treated as data,
+     * not visible text.</p>
      * @param text unencoded text
      * @return this element
      */
     public Element text(String text) {
         Validate.notNull(text);
-
         empty();
-        TextNode textNode = new TextNode(text);
-        appendChild(textNode);
+        // special case for script/style in HTML: should be data node
+        Document owner = ownerDocument();
+        // an alternate impl would be to run through the parser
+        if (owner != null && owner.parser().isContentForTagData(normalName()))
+            appendChild(new DataNode(text));
+        else
+            appendChild(new TextNode(text));
 
         return this;
     }
@@ -1281,8 +1356,8 @@ public class Element extends Node {
     }
 
     /**
-     * Get the combined data of this element. Data is e.g. the inside of a {@code script} tag. Note that data is NOT the
-     * text of the element. Use {@link #text()} to get the text that would be visible to a user, and {@link #data()}
+     * Get the combined data of this element. Data is e.g. the inside of a {@code <script>} tag. Note that data is NOT the
+     * text of the element. Use {@link #text()} to get the text that would be visible to a user, and {@code data()}
      * for the contents of scripts, comments, CSS styles, etc.
      *
      * @return the data, or empty string if none
@@ -1329,7 +1404,7 @@ public class Element extends Node {
      * @return set of classnames, empty if no class attribute
      */
     public Set<String> classNames() {
-    	String[] names = classSplit.split(className());
+    	String[] names = ClassSplit.split(className());
     	Set<String> classNames = new LinkedHashSet<>(Arrays.asList(names));
     	classNames.remove(""); // if classNames() was empty, would include an empty class
 
@@ -1358,7 +1433,7 @@ public class Element extends Node {
      */
     // performance sensitive
     public boolean hasClass(String className) {
-        if (!hasAttributes())
+        if (attributes == null)
             return false;
 
         final String classAttr = attributes.getIgnoreCase("class");
@@ -1555,12 +1630,11 @@ public class Element extends Node {
     }
 
     @Override
-    protected Element doClone(Node parent) {
+    protected Element doClone( Node parent) {
         Element clone = (Element) super.doClone(parent);
         clone.attributes = attributes != null ? attributes.clone() : null;
         clone.childNodes = new NodeList(clone, childNodes.size());
         clone.childNodes.addAll(childNodes); // the children then get iterated and cloned in Node.clone
-        clone.setBaseUri(baseUri());
 
         return clone;
     }
@@ -1616,7 +1690,7 @@ public class Element extends Node {
     private boolean isInlineable(Document.OutputSettings out) {
         return tag().isInline()
             && !tag().isEmpty()
-            && parent().isBlock()
+            && (parent() == null || parent().isBlock())
             && previousSibling() != null
             && !out.outline();
     }

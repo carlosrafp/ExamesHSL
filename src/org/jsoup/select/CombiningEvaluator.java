@@ -3,6 +3,7 @@ package org.jsoup.select;
 import org.jsoup.internal.StringUtil;
 import org.jsoup.nodes.Element;
 
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -25,7 +26,7 @@ abstract class CombiningEvaluator extends Evaluator {
         updateNumEvaluators();
     }
 
-    Evaluator rightMostEvaluator() {
+     Evaluator rightMostEvaluator() {
         return num > 0 ? evaluators.get(num - 1) : null;
     }
     
@@ -49,7 +50,7 @@ abstract class CombiningEvaluator extends Evaluator {
 
         @Override
         public boolean matches(Element root, Element node) {
-            for (int i = 0; i < num; i++) {
+            for (int i = num - 1; i >= 0; i--) { // process backwards so that :matchText is evaled earlier, to catch parent query. todo - should redo matchText to virtually expand during match, not pre-match (see SelectorTest#findBetweenSpan)
                 Evaluator s = evaluators.get(i);
                 if (!s.matches(root, node))
                     return false;
@@ -59,7 +60,7 @@ abstract class CombiningEvaluator extends Evaluator {
 
         @Override
         public String toString() {
-            return StringUtil.join(evaluators, " ");
+            return StringUtil.join(evaluators, "");
         }
     }
 

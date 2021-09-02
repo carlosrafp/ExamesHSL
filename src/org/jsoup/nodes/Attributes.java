@@ -5,6 +5,7 @@ import org.jsoup.helper.Validate;
 import org.jsoup.internal.StringUtil;
 import org.jsoup.parser.ParseSettings;
 
+
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
@@ -32,43 +33,36 @@ import static org.jsoup.internal.Normalizer.lowerCase;
  * @author Jonathan Hedley, jonathan@hedley.net
  */
 public class Attributes implements Iterable<Attribute>, Cloneable {
+    // The Attributes object is only created on the first use of an attribute; the Element will just have a null
+    // Attribute slot otherwise
     protected static final String dataPrefix = "data-";
     // Indicates a jsoup internal key. Can't be set via HTML. (It could be set via accessor, but not too worried about
     // that. Suppressed from list, iter.
     static final char InternalPrefix = '/';
-    private static final int InitialCapacity = 2; // sampling found mean count when attrs present = 1.49; 1.08 overall. 2.6:1 have attrs.
+    private static final int InitialCapacity = 3; // sampling found mean count when attrs present = 1.49; 1.08 overall. 2.6:1 don't have any attrs.
 
     // manages the key/val arrays
     private static final int GrowthFactor = 2;
-    private static final String[] Empty = {};
     static final int NotFound = -1;
     private static final String EmptyString = "";
 
-    private int size = 0; // number of slots used (not capacity, which is keys.length
-    String[] keys = Empty;
-    String[] vals = Empty;
+    // the number of instance fields is kept as low as possible giving an object size of 24 bytes
+    private int size = 0; // number of slots used (not total capacity, which is keys.length)
+    String[] keys = new String[InitialCapacity];
+    String[] vals = new String[InitialCapacity];
 
     // check there's room for more
     private void checkCapacity(int minNewSize) {
         Validate.isTrue(minNewSize >= size);
-        int curSize = keys.length;
-        if (curSize >= minNewSize)
+        int curCap = keys.length;
+        if (curCap >= minNewSize)
             return;
+        int newCap = curCap >= InitialCapacity ? size * GrowthFactor : InitialCapacity;
+        if (minNewSize > newCap)
+            newCap = minNewSize;
 
-        int newSize = curSize >= InitialCapacity ? size * GrowthFactor : InitialCapacity;
-        if (minNewSize > newSize)
-            newSize = minNewSize;
-
-        keys = copyOf(keys, newSize);
-        vals = copyOf(vals, newSize);
-    }
-
-    // simple implementation of Arrays.copy, for support of Android API 8.
-    private static String[] copyOf(String[] orig, int size) {
-        final String[] copy = new String[size];
-        System.arraycopy(orig, 0, copy, 0,
-                Math.min(orig.length, size));
-        return copy;
+        keys = Arrays.copyOf(keys, newCap);
+        vals = Arrays.copyOf(vals, newCap);
     }
 
     int indexOfKey(String key) {
@@ -90,7 +84,7 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
     }
 
     // we track boolean attributes as null in values - they're just keys. so returns empty for consumers
-    static String checkNotNull(String val) {
+    static String checkNotNull( String val) {
         return val == null ? EmptyString : val;
     }
 
@@ -119,7 +113,7 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
      * Adds a new attribute. Will produce duplicates if the key already exists.
      * @see Attributes#put(String, String)
      */
-    public Attributes add(String key, String value) {
+    public Attributes add(String key,  String value) {
         checkCapacity(size + 1);
         keys[size] = key;
         vals[size] = value;
@@ -133,7 +127,7 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
      * @param value attribute value (may be null, to set a boolean attribute)
      * @return these attributes, for chaining
      */
-    public Attributes put(String key, String value) {
+    public Attributes put(String key,  String value) {
         Validate.notNull(key);
         int i = indexOfKey(key);
         if (i != NotFound)
@@ -143,7 +137,7 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
         return this;
     }
 
-    void putIgnoreCase(String key, String value) {
+    void putIgnoreCase(String key,  String value) {
         int i = indexOfKeyIgnoreCase(key);
         if (i != NotFound) {
             vals[i] = value;
@@ -181,6 +175,7 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
     }
 
     // removes and shifts up
+    @SuppressWarnings("AssignmentToNull")
     private void remove(int index) {
         Validate.isFalse(index >= size);
         int shifted = size - index - 1;
@@ -252,16 +247,12 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
     }
 
     /**
-     Get the number of attributes in this set.
+     Get the number of attributes in this set, including any jsoup internal-only attributes. Internal attributes are
+     excluded from the {@link #html()}, {@link #asList()}, and {@link #iterator()} methods.
      @return size
      */
     public int size() {
-        int s = 0;
-        for (int i = 0; i < size; i++) {
-            if (!isInternalKey(keys[i]))
-                s++;
-        }
-        return s;
+        return size;
     }
 
     /**
@@ -284,7 +275,6 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
             // todo - should this be case insensitive?
             put(attr);
         }
-
     }
 
     public Iterator<Attribute> iterator() {
@@ -418,8 +408,8 @@ public class Attributes implements Iterable<Attribute>, Cloneable {
             throw new RuntimeException(e);
         }
         clone.size = size;
-        keys = copyOf(keys, size);
-        vals = copyOf(vals, size);
+        keys = Arrays.copyOf(keys, size);
+        vals = Arrays.copyOf(vals, size);
         return clone;
     }
 

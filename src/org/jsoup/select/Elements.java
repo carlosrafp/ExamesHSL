@@ -9,6 +9,7 @@ import org.jsoup.nodes.FormElement;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
 
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -183,7 +184,8 @@ public class Elements extends ArrayList<Element> {
      */
     public String val() {
         if (size() > 0)
-            return first().val();
+            //noinspection ConstantConditions
+            return first().val(); // first() != null as size() > 0
         else
             return "";
     }
@@ -292,8 +294,9 @@ public class Elements extends ArrayList<Element> {
     }
 
     /**
-     * Update the tag name of each matched element. For example, to change each {@code <i>} to a {@code <em>}, do
+     * Update (rename) the tag name of each matched element. For example, to change each {@code <i>} to a {@code <em>}, do
      * {@code doc.select("i").tagName("em");}
+     *
      * @param tagName the new tag name
      * @return this, for chaining
      * @see Element#tagName(String)
@@ -564,7 +567,7 @@ public class Elements extends ArrayList<Element> {
         return siblings(query, false, true);
     }
 
-    private Elements siblings(String query, boolean next, boolean all) {
+    private Elements siblings( String query, boolean next, boolean all) {
         Elements els = new Elements();
         Evaluator eval = query != null? QueryParser.parse(query) : null;
         for (Element e : this) {
@@ -598,7 +601,7 @@ public class Elements extends ArrayList<Element> {
      Get the first matched element.
      @return The first matched element, or <code>null</code> if contents is empty.
      */
-    public Element first() {
+    public  Element first() {
         return isEmpty() ? null : get(0);
     }
 
@@ -606,7 +609,7 @@ public class Elements extends ArrayList<Element> {
      Get the last matched element.
      @return The last matched element, or <code>null</code> if contents is empty.
      */
-    public Element last() {
+    public  Element last() {
         return isEmpty() ? null : get(size() - 1);
     }
 
@@ -636,7 +639,11 @@ public class Elements extends ArrayList<Element> {
      * no forms.
      */
     public List<FormElement> forms() {
-        return nodesOfType(FormElement.class);
+        ArrayList<FormElement> forms = new ArrayList<>();
+        for (Element el: this)
+            if (el instanceof FormElement)
+                forms.add((FormElement) el);
+        return forms;
     }
 
     /**
@@ -644,7 +651,7 @@ public class Elements extends ArrayList<Element> {
      * @return Comment nodes, or an empty list if none.
      */
     public List<Comment> comments() {
-        return nodesOfType(Comment.class);
+        return childNodesOfType(Comment.class);
     }
 
     /**
@@ -652,7 +659,7 @@ public class Elements extends ArrayList<Element> {
      * @return TextNode nodes, or an empty list if none.
      */
     public List<TextNode> textNodes() {
-        return nodesOfType(TextNode.class);
+        return childNodesOfType(TextNode.class);
     }
 
     /**
@@ -661,20 +668,16 @@ public class Elements extends ArrayList<Element> {
      * @return Comment nodes, or an empty list if none.
      */
     public List<DataNode> dataNodes() {
-        return nodesOfType(DataNode.class);
+        return childNodesOfType(DataNode.class);
     }
 
-    private <T extends Node> List<T> nodesOfType(Class<T> tClass) {
+    private <T extends Node> List<T> childNodesOfType(Class<T> tClass) {
         ArrayList<T> nodes = new ArrayList<>();
         for (Element el: this) {
-            if (el.getClass().isInstance(tClass)) { // Handles FormElements
-                nodes.add(tClass.cast(el));
-            } else if (Node.class.isAssignableFrom(tClass)) { // check if child nodes match
-                for (int i = 0; i < el.childNodeSize(); i++) {
-                    Node node = el.childNode(i);
-                    if (tClass.isInstance(node))
-                        nodes.add(tClass.cast(node));
-                }
+            for (int i = 0; i < el.childNodeSize(); i++) {
+                Node node = el.childNode(i);
+                if (tClass.isInstance(node))
+                    nodes.add(tClass.cast(node));
             }
         }
         return nodes;

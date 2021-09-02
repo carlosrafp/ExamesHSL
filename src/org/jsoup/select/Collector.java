@@ -3,6 +3,8 @@ package org.jsoup.select;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 
+
+
 import static org.jsoup.select.NodeFilter.FilterResult.CONTINUE;
 import static org.jsoup.select.NodeFilter.FilterResult.STOP;
 
@@ -13,8 +15,7 @@ import static org.jsoup.select.NodeFilter.FilterResult.STOP;
  */
 public class Collector {
 
-    private Collector() {
-    }
+    private Collector() {}
 
     /**
      Build a list of elements, by visiting root and every descendant of root, and testing it against the evaluator.
@@ -52,7 +53,14 @@ public class Collector {
         }
     }
 
-    public static Element findFirst(Evaluator eval, Element root) {
+    /**
+     Finds the first Element that matches the Evaluator that descends from the root, and stops the query once that first
+     match is found.
+     @param eval Evaluator to test elements against
+     @param root root of tree to descend
+     @return the first match; {@code null} if none
+     */
+    public static  Element findFirst(Evaluator eval, Element root) {
         FirstFinder finder = new FirstFinder(root, eval);
         NodeTraversor.filter(finder, root);
         return finder.match;
@@ -60,7 +68,7 @@ public class Collector {
 
     private static class FirstFinder implements NodeFilter {
         private final Element root;
-        private Element match = null;
+        private  Element match = null;
         private final Evaluator eval;
 
         FirstFinder(Element root, Evaluator eval) {

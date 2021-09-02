@@ -53,19 +53,24 @@ public class FormElement extends Element {
     }
 
     /**
-     * Prepare to submit this form. A Connection object is created with the request set up from the form values. You
-     * can then set up other options (like user-agent, timeout, cookies), then execute it.
-     * @return a connection prepared from the values of this form.
-     * @throws IllegalArgumentException if the form's absolute action URL cannot be determined. Make sure you pass the
-     * document's base URI when parsing.
+     Prepare to submit this form. A Connection object is created with the request set up from the form values. This
+     Connection will inherit the settings and the cookies (etc) of the connection/session used to request this Document
+     (if any), as available in {@link Document#connection()}
+     <p>You can then set up other options (like user-agent, timeout, cookies), then execute it.</p>
+
+     @return a connection prepared from the values of this form, in the same session as the one used to request it
+     @throws IllegalArgumentException if the form's absolute action URL cannot be determined. Make sure you pass the
+     document's base URI when parsing.
      */
     public Connection submit() {
         String action = hasAttr("action") ? absUrl("action") : baseUri();
         Validate.notEmpty(action, "Could not determine a form action URL for submit. Ensure you set a base URI when parsing.");
-        Connection.Method method = attr("method").toUpperCase().equals("POST") ?
+        Connection.Method method = attr("method").equalsIgnoreCase("POST") ?
                 Connection.Method.POST : Connection.Method.GET;
 
-        return Jsoup.connect(action)
+        Document owner = ownerDocument();
+        Connection connection = owner != null? owner.connection().newRequest() : Jsoup.newSession();
+        return connection.url(action)
                 .data(formData())
                 .method(method);
     }
@@ -96,7 +101,7 @@ public class FormElement extends Element {
                     set = true;
                 }
                 if (!set) {
-                    Element option = el.select("option").first();
+                    Element option = el.selectFirst("option");
                     if (option != null)
                         data.add(HttpConnection.KeyVal.create(name, option.val()));
                 }

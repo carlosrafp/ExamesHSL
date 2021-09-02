@@ -6,6 +6,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 
+
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ abstract class TreeBuilder {
     protected void initialiseParse(Reader input, String baseUri, Parser parser) {
         Validate.notNull(input, "String input must not be null");
         Validate.notNull(baseUri, "BaseURI must not be null");
+        Validate.notNull(parser);
 
         doc = new Document(baseUri);
         doc.parser(parser);
@@ -54,6 +56,12 @@ abstract class TreeBuilder {
 
         return doc;
     }
+
+    /**
+     Create a new copy of this TreeBuilder
+     @return copy, ready for a new parse
+     */
+    abstract TreeBuilder newInstance();
 
     abstract List<Node> parseFragment(String inputFragment, Element context, String baseUri, Parser parser);
 
@@ -99,19 +107,43 @@ abstract class TreeBuilder {
     }
 
 
+    /**
+     Get the current element (last on the stack). If all items have been removed, returns the document instead
+     (which might not actually be on the stack; use stack.size() == 0 to test if required.
+     @return the last element on the stack, if any; or the root document
+     */
     protected Element currentElement() {
         int size = stack.size();
-        return size > 0 ? stack.get(size-1) : null;
+        return size > 0 ? stack.get(size-1) : doc;
     }
 
+    /**
+     Checks if the Current Element's normal name equals the supplied name.
+     @param normalName name to check
+     @return true if there is a current element on the stack, and its name equals the supplied
+     */
+    protected boolean currentElementIs(String normalName) {
+        if (stack.size() == 0)
+            return false;
+        Element current = currentElement();
+        return current != null && current.normalName().equals(normalName);
+    }
 
     /**
-     * If the parser is tracking errors, and an error at the current position.
+     * If the parser is tracking errors, add an error at the current position.
      * @param msg error message
      */
     protected void error(String msg) {
         ParseErrorList errors = parser.getErrors();
         if (errors.canAddError())
             errors.add(new ParseError(reader.pos(), msg));
+    }
+
+    /**
+     (An internal method, visible for Element. For HTML parse, signals that script and style text should be treated as
+     Data Nodes).
+     */
+    protected boolean isContentForTagData(String normalName) {
+        return false;
     }
 }
